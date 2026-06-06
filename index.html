@@ -1,926 +1,416 @@
-import { useState, useEffect, useMemo } from "react";
-import {
-  LayoutDashboard, ArrowLeftRight, Wallet, ArrowDownToLine, ArrowUpFromLine,
-  BarChart3, Plus, Trash2, X, CheckCircle2, Clock, AlertTriangle, Users,
-  TrendingUp, TrendingDown, PiggyBank, Receipt, Building2, Coins, Settings
-} from "lucide-react";
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-  PieChart, Pie, Cell, Legend, LineChart, Line
-} from "recharts";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Sistema de Finanzas</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>body{margin:0;font-family:'Sora',system-ui,sans-serif}*{box-sizing:border-box}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo}=React;
+const {ResponsiveContainer,BarChart,Bar,XAxis,YAxis,Tooltip,CartesianGrid,PieChart,Pie,Cell,Legend,LineChart,Line}=Recharts;
 
-/* ============================ Utilidades ============================ */
-const STORE_KEY = "finanzas_familia_v1";
-const uid = () => Math.random().toString(36).slice(2, 10);
-const today = () => new Date().toISOString().slice(0, 10);
-const monthKey = (d) => (d || "").slice(0, 7);
-const usd = (n) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-    Number.isFinite(n) ? n : 0
-  );
-const monthName = (mk) => {
-  if (!mk) return "";
-  const [y, m] = mk.split("-");
-  const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  return `${meses[parseInt(m, 10) - 1]} ${y}`;
-};
-const fmtDate = (d) => {
-  if (!d) return "";
-  const [y, m, day] = d.split("-");
-  return `${day}/${m}/${y}`;
-};
+const STORE_KEY="finanzas_familia_v1";
+const uid=()=>Math.random().toString(36).slice(2,10);
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const monthKey=d=>(d||"").slice(0,7);
+const usd=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number.isFinite(n)?n:0);
+const monthName=mk=>{if(!mk)return"";const[y,m]=mk.split("-");const ms=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];return`${ms[parseInt(m,10)-1]} ${y}`;};
+const fmtDate=d=>{if(!d)return"";const[y,m,day]=d.split("-");return`${day}/${m}/${y}`;};
 
-/* ====================== Persistencia (compartida) ====================== */
-async function loadData() {
-  try {
-    if (typeof window !== "undefined" && window.storage) {
-      const r = await window.storage.get(STORE_KEY, true);
-      if (r && r.value) return JSON.parse(r.value);
-    }
-  } catch (e) { /* sin almacenamiento: se usa memoria */ }
-  return null;
-}
-async function saveData(data) {
-  try {
-    if (typeof window !== "undefined" && window.storage) {
-      await window.storage.set(STORE_KEY, JSON.stringify(data), true);
-    }
-  } catch (e) { /* ignore */ }
-}
+function loadData(){try{const r=localStorage.getItem(STORE_KEY);if(r)return JSON.parse(r);}catch(e){}return null;}
+function saveData(data){try{localStorage.setItem(STORE_KEY,JSON.stringify(data));}catch(e){}}
 
-/* ============================ Datos iniciales ============================ */
-function seed() {
-  const accBanco = uid(), accCaja = uid(), accPersonal = uid();
-  const cVentaLocal = uid(), cVentaProd = uid(), cVentaOnline = uid(), cCobro = uid();
-  const cInsumos = uid(), cRenta = uid(), cServicios = uid(), cProveedor = uid(), cPagoProv = uid(), cPersonal = uid();
-  const r1 = uid(), p1 = uid();
-  return {
-    settings: { negocio: "Mi Negocio Familiar" },
-    users: [
-      { id: uid(), name: "Yo", role: "Dueño" },
-      { id: uid(), name: "Familiar", role: "Familia" },
-      { id: uid(), name: "Empleado", role: "Empleado" },
-      { id: uid(), name: "Contador", role: "Contador" },
+const IC={dashboard:"📊",exchange:"🔄",wallet:"💳",arrowDown:"📥",arrowUp:"📤",chart:"📈",plus:"➕",trash:"🗑️",close:"✕",check:"✅",clock:"🕐",alert:"⚠️",trendUp:"📈",trendDown:"📉",piggy:"🐷",building:"🏦",coins:"🪙",settings:"⚙️",receipt:"🧾",users:"👥"};
+function Icon({name,size=20}){return <span style={{fontSize:size*0.75,lineHeight:1}}>{IC[name]||"•"}</span>;}
+
+function seed(){
+  const aB=uid(),aC=uid(),aP=uid();
+  const cVL=uid(),cVP=uid(),cVO=uid(),cOI=uid();
+  const cIn=uid(),cRe=uid(),cSe=uid(),cPr=uid(),cPe=uid();
+  return{
+    settings:{negocio:"Mi Negocio Familiar"},
+    users:[{id:uid(),name:"Yo",role:"Dueño"},{id:uid(),name:"Familiar",role:"Familia"},{id:uid(),name:"Empleado",role:"Empleado"},{id:uid(),name:"Contador",role:"Contador"}],
+    accounts:[{id:aB,name:"Cuenta de banco",type:"banco",scope:"negocio",opening:2000},{id:aC,name:"Efectivo (caja)",type:"efectivo",scope:"negocio",opening:300},{id:aP,name:"Cuenta personal",type:"banco",scope:"personal",opening:1500}],
+    categories:[
+      {id:cVL,name:"Ventas comida/local",kind:"ingreso",scope:"negocio"},
+      {id:cVP,name:"Ventas de productos",kind:"ingreso",scope:"negocio"},
+      {id:cVO,name:"Ventas online",kind:"ingreso",scope:"negocio"},
+      {id:cOI,name:"Otros ingresos",kind:"ingreso",scope:"ambos"},
+      {id:cIn,name:"Insumos / inventario",kind:"egreso",scope:"negocio"},
+      {id:cRe,name:"Renta",kind:"egreso",scope:"negocio"},
+      {id:cSe,name:"Servicios (luz, agua, internet)",kind:"egreso",scope:"negocio"},
+      {id:cPr,name:"Proveedores",kind:"egreso",scope:"negocio"},
+      {id:cPe,name:"Gastos personales",kind:"egreso",scope:"personal"},
     ],
-    accounts: [
-      { id: accBanco, name: "Cuenta de banco", type: "banco", scope: "negocio", opening: 2000 },
-      { id: accCaja, name: "Efectivo (caja)", type: "efectivo", scope: "negocio", opening: 300 },
-      { id: accPersonal, name: "Cuenta personal", type: "banco", scope: "personal", opening: 1500 },
+    transactions:[
+      {id:uid(),date:todayStr(),type:"ingreso",accountId:aC,categoryId:cVL,scope:"negocio",amount:450,description:"Ventas del día (ejemplo)",who:"Yo"},
+      {id:uid(),date:todayStr(),type:"ingreso",accountId:aB,categoryId:cVO,scope:"negocio",amount:220,description:"Pedido online (ejemplo)",who:"Yo"},
+      {id:uid(),date:todayStr(),type:"egreso",accountId:aC,categoryId:cIn,scope:"negocio",amount:180,description:"Compra de insumos (ejemplo)",who:"Empleado"},
+      {id:uid(),date:todayStr(),type:"egreso",accountId:aB,categoryId:cSe,scope:"negocio",amount:95,description:"Recibo de luz (ejemplo)",who:"Yo"},
     ],
-    categories: [
-      { id: cVentaLocal, name: "Ventas comida/local", kind: "ingreso", scope: "negocio" },
-      { id: cVentaProd, name: "Ventas de productos", kind: "ingreso", scope: "negocio" },
-      { id: cVentaOnline, name: "Ventas online", kind: "ingreso", scope: "negocio" },
-      { id: cCobro, name: "Otros ingresos", kind: "ingreso", scope: "ambos" },
-      { id: cInsumos, name: "Insumos / inventario", kind: "egreso", scope: "negocio" },
-      { id: cRenta, name: "Renta", kind: "egreso", scope: "negocio" },
-      { id: cServicios, name: "Servicios (luz, agua, internet)", kind: "egreso", scope: "negocio" },
-      { id: cProveedor, name: "Proveedores", kind: "egreso", scope: "negocio" },
-      { id: cPersonal, name: "Gastos personales", kind: "egreso", scope: "personal" },
-    ],
-    transactions: [
-      { id: uid(), date: today(), type: "ingreso", accountId: accCaja, categoryId: cVentaLocal, scope: "negocio", amount: 450, description: "Ventas del día (ejemplo)", who: "Yo" },
-      { id: uid(), date: today(), type: "ingreso", accountId: accBanco, categoryId: cVentaOnline, scope: "negocio", amount: 220, description: "Pedido online (ejemplo)", who: "Yo" },
-      { id: uid(), date: today(), type: "egreso", accountId: accCaja, categoryId: cInsumos, scope: "negocio", amount: 180, description: "Compra de insumos (ejemplo)", who: "Empleado" },
-      { id: uid(), date: today(), type: "egreso", accountId: accBanco, categoryId: cServicios, scope: "negocio", amount: 95, description: "Recibo de luz (ejemplo)", who: "Yo" },
-    ],
-    receivables: [
-      { id: r1, client: "Cliente a crédito (ejemplo)", description: "Venta de productos a 30 días", date: today(), dueDate: today(), amount: 600, categoryId: cVentaProd, scope: "negocio" },
-    ],
-    payables: [
-      { id: p1, supplier: "Proveedor (ejemplo)", description: "Insumos a crédito", date: today(), dueDate: today(), amount: 350, categoryId: cProveedor, scope: "negocio" },
-    ],
+    receivables:[{id:uid(),client:"Cliente a crédito (ejemplo)",description:"Venta de productos a 30 días",date:todayStr(),dueDate:todayStr(),amount:600,categoryId:cVP,scope:"negocio"}],
+    payables:[{id:uid(),supplier:"Proveedor (ejemplo)",description:"Insumos a crédito",date:todayStr(),dueDate:todayStr(),amount:350,categoryId:cPr,scope:"negocio"}],
   };
 }
 
-/* ============================ Cálculos ============================ */
-function accountBalance(acc, txs) {
-  let bal = acc.opening || 0;
-  for (const t of txs) {
-    if (t.type === "transferencia") {
-      if (t.accountId === acc.id) bal -= t.amount;
-      if (t.toAccountId === acc.id) bal += t.amount;
-    } else if (t.accountId === acc.id) {
-      bal += t.type === "ingreso" ? t.amount : -t.amount;
-    }
-  }
-  return bal;
-}
-const paidOf = (docId, txs) =>
-  txs.filter((t) => t.linkId === docId).reduce((s, t) => s + t.amount, 0);
-const docStatus = (doc, txs) => {
-  const paid = paidOf(doc.id, txs);
-  if (paid >= doc.amount - 0.001) return "pagado";
-  const overdue = doc.dueDate && doc.dueDate < today();
-  if (paid > 0) return overdue ? "vencido-parcial" : "parcial";
-  return overdue ? "vencido" : "pendiente";
-};
+function accountBalance(acc,txs){let b=acc.opening||0;for(const t of txs){if(t.type==="transferencia"){if(t.accountId===acc.id)b-=t.amount;if(t.toAccountId===acc.id)b+=t.amount;}else if(t.accountId===acc.id){b+=t.type==="ingreso"?t.amount:-t.amount;}}return b;}
+const paidOf=(docId,txs)=>txs.filter(t=>t.linkId===docId).reduce((s,t)=>s+t.amount,0);
+const docStatus=(doc,txs)=>{const p=paidOf(doc.id,txs);if(p>=doc.amount-0.001)return"pagado";const ov=doc.dueDate&&doc.dueDate<todayStr();if(p>0)return ov?"vencido-parcial":"parcial";return ov?"vencido":"pendiente";};
 
-/* ============================ Componentes UI ============================ */
-const COLORS = ["#0d9488", "#f59e0b", "#6366f1", "#ec4899", "#84cc16", "#06b6d4", "#ef4444", "#8b5cf6", "#14b8a6"];
+const COLORS=["#0d9488","#f59e0b","#6366f1","#ec4899","#84cc16","#06b6d4","#ef4444","#8b5cf6","#14b8a6"];
+const inputCls="w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-800 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 bg-white";
 
-function Field({ label, children }) {
-  return (
-    <label className="block mb-3">
-      <span className="block text-xs font-semibold text-stone-500 mb-1 uppercase tracking-wide">{label}</span>
-      {children}
-    </label>
-  );
-}
-const inputCls = "w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-800 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 bg-white";
+function Field({label,children}){return <label className="block mb-3"><span className="block text-xs font-semibold text-stone-500 mb-1 uppercase tracking-wide">{label}</span>{children}</label>;}
 
-function Modal({ title, onClose, children }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/50 p-0 sm:p-4" onClick={onClose}>
-      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl max-h-screen overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 sticky top-0 bg-white rounded-t-2xl">
-          <h3 className="font-bold text-stone-800">{title}</h3>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-700"><X size={22} /></button>
-        </div>
-        <div className="p-5">{children}</div>
+function Modal({title,onClose,children}){
+  return <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/50 p-0 sm:p-4" onClick={onClose}>
+    <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 sticky top-0 bg-white rounded-t-2xl">
+        <h3 className="font-bold text-stone-800">{title}</h3>
+        <button onClick={onClose} className="text-stone-400 hover:text-stone-700 text-xl">✕</button>
       </div>
+      <div className="p-5">{children}</div>
     </div>
-  );
+  </div>;
 }
 
-function Badge({ status }) {
-  const map = {
-    pagado: ["bg-emerald-100 text-emerald-700", "Pagado", CheckCircle2],
-    pendiente: ["bg-stone-100 text-stone-600", "Pendiente", Clock],
-    parcial: ["bg-amber-100 text-amber-700", "Parcial", Clock],
-    vencido: ["bg-rose-100 text-rose-700", "Vencido", AlertTriangle],
-    "vencido-parcial": ["bg-rose-100 text-rose-700", "Vencido (parcial)", AlertTriangle],
-  };
-  const [cls, txt, Icon] = map[status] || map.pendiente;
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${cls}`}>
-      <Icon size={12} /> {txt}
-    </span>
-  );
+function Badge({status}){
+  const map={pagado:["bg-emerald-100 text-emerald-700","Pagado","check"],pendiente:["bg-stone-100 text-stone-600","Pendiente","clock"],parcial:["bg-amber-100 text-amber-700","Parcial","clock"],vencido:["bg-rose-100 text-rose-700","Vencido","alert"],"vencido-parcial":["bg-rose-100 text-rose-700","Vencido","alert"]};
+  const[cls,txt,ic]=map[status]||map.pendiente;
+  return <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${cls}`}><Icon name={ic} size={14}/> {txt}</span>;
 }
 
-function Kpi({ label, value, icon: Icon, tone }) {
-  const tones = {
-    teal: "text-emerald-700 bg-emerald-50",
-    amber: "text-amber-700 bg-amber-50",
-    rose: "text-rose-700 bg-rose-50",
-    indigo: "text-indigo-700 bg-indigo-50",
-  };
-  return (
-    <div className="bg-white rounded-xl border border-stone-200 p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${tones[tone]}`}><Icon size={20} /></div>
-      <div className="min-w-0">
-        <div className="text-xs text-stone-500 font-medium truncate">{label}</div>
-        <div className="text-lg font-bold text-stone-800" style={{ fontVariantNumeric: "tabular-nums" }}>{value}</div>
-      </div>
+function Kpi({label,value,icon,tone}){
+  const tones={teal:"text-emerald-700 bg-emerald-50",amber:"text-amber-700 bg-amber-50",rose:"text-rose-700 bg-rose-50",indigo:"text-indigo-700 bg-indigo-50"};
+  return <div className="bg-white rounded-xl border border-stone-200 p-4 flex items-center gap-3">
+    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${tones[tone]}`}><Icon name={icon} size={22}/></div>
+    <div className="min-w-0"><div className="text-xs text-stone-500 font-medium truncate">{label}</div><div className="text-lg font-bold text-stone-800" style={{fontVariantNumeric:"tabular-nums"}}>{value}</div></div>
+  </div>;
+}
+
+/* ========= VISTAS ========= */
+function Resumen({saldoTotal,totalPorCobrar,totalPorPagar,utilidadMes,visTx,visAccounts,transactions,catName}){
+  const last6=useMemo(()=>{const arr=[];const now=new Date();for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const mk=d.toISOString().slice(0,7);const ing=visTx.filter(t=>monthKey(t.date)===mk&&t.type==="ingreso").reduce((s,t)=>s+t.amount,0);const egr=visTx.filter(t=>monthKey(t.date)===mk&&t.type==="egreso").reduce((s,t)=>s+t.amount,0);arr.push({mes:monthName(mk).split(" ")[0],Ingresos:ing,Egresos:egr});}return arr;},[visTx]);
+  const gastosCat=useMemo(()=>{const mk=monthKey(todayStr());const m={};visTx.filter(t=>t.type==="egreso"&&monthKey(t.date)===mk).forEach(t=>{m[catName(t.categoryId)]=(m[catName(t.categoryId)]||0)+t.amount;});return Object.entries(m).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);},[visTx]);
+  const recientes=visTx.slice(0,6);
+  const accName=id=>visAccounts.find(a=>a.id===id)?.name||(transactions.__allAccounts||[]).find(a=>a.id===id)?.name||"—";
+  return <div className="space-y-5">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <Kpi label="Saldo total" value={usd(saldoTotal)} icon="wallet" tone="teal"/>
+      <Kpi label="Utilidad del mes" value={usd(utilidadMes)} icon={utilidadMes>=0?"trendUp":"trendDown"} tone={utilidadMes>=0?"teal":"rose"}/>
+      <Kpi label="Te deben" value={usd(totalPorCobrar)} icon="arrowDown" tone="indigo"/>
+      <Kpi label="Debes" value={usd(totalPorPagar)} icon="arrowUp" tone="amber"/>
     </div>
-  );
-}
-
-/* ============================ App ============================ */
-export default function App() {
-  const [data, setData] = useState(null);
-  const [loaded, setLoaded] = useState(false);
-  const [view, setView] = useState("resumen");
-  const [scope, setScope] = useState("todo"); // todo | negocio | personal
-  const [currentUser, setCurrentUser] = useState("Yo");
-  const [modal, setModal] = useState(null); // {type, ...}
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const stored = await loadData();
-      if (active) { setData(stored || seed()); setLoaded(true); }
-    })();
-    return () => { active = false; };
-  }, []);
-  useEffect(() => { if (loaded && data) saveData(data); }, [data, loaded]);
-
-  if (!data) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 text-stone-500">
-        <div className="animate-pulse">Cargando tu sistema de finanzas…</div>
-      </div>
-    );
-  }
-
-  const { accounts, categories, transactions, receivables, payables, users } = data;
-  const inScope = (s) => scope === "todo" || s === scope;
-
-  /* ---- mutadores ---- */
-  const update = (patch) => setData((d) => ({ ...d, ...patch }));
-  const addTx = (tx) => setData((d) => ({ ...d, transactions: [{ id: uid(), ...tx }, ...d.transactions] }));
-  const delTx = (id) => setData((d) => ({ ...d, transactions: d.transactions.filter((t) => t.id !== id) }));
-
-  /* ---- datos derivados ---- */
-  const visAccounts = accounts.filter((a) => inScope(a.scope));
-  const saldoTotal = visAccounts.reduce((s, a) => s + accountBalance(a, transactions), 0);
-  const visRec = receivables.filter((r) => inScope(r.scope));
-  const visPay = payables.filter((p) => inScope(p.scope));
-  const totalPorCobrar = visRec.reduce((s, r) => s + Math.max(0, r.amount - paidOf(r.id, transactions)), 0);
-  const totalPorPagar = visPay.reduce((s, p) => s + Math.max(0, p.amount - paidOf(p.id, transactions)), 0);
-
-  const visTx = transactions.filter((t) => inScope(t.scope));
-  const mkNow = monthKey(today());
-  const mes = visTx.filter((t) => monthKey(t.date) === mkNow && t.type !== "transferencia");
-  const ingresoMes = mes.filter((t) => t.type === "ingreso").reduce((s, t) => s + t.amount, 0);
-  const egresoMes = mes.filter((t) => t.type === "egreso").reduce((s, t) => s + t.amount, 0);
-  const utilidadMes = ingresoMes - egresoMes;
-
-  const catName = (id) => categories.find((c) => c.id === id)?.name || "Sin categoría";
-  const accName = (id) => accounts.find((a) => a.id === id)?.name || "—";
-
-  const navItems = [
-    { id: "resumen", label: "Resumen", icon: LayoutDashboard },
-    { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
-    { id: "cuentas", label: "Cuentas", icon: Wallet },
-    { id: "cobrar", label: "Por cobrar", icon: ArrowDownToLine },
-    { id: "pagar", label: "Por pagar", icon: ArrowUpFromLine },
-    { id: "reportes", label: "Reportes", icon: BarChart3 },
-  ];
-
-  return (
-    <div className="min-h-screen bg-stone-50 text-stone-800 flex" style={{ fontFamily: "'Sora', system-ui, sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');`}</style>
-
-      {/* Sidebar (escritorio) */}
-      <aside className="hidden md:flex md:flex-col w-60 bg-emerald-950 text-emerald-50 p-4 shrink-0">
-        <div className="flex items-center gap-2 px-2 mb-6">
-          <div className="w-9 h-9 rounded-lg bg-emerald-400 text-emerald-950 flex items-center justify-center"><PiggyBank size={20} /></div>
-          <div className="leading-tight">
-            <div className="font-extrabold text-sm">Finanzas</div>
-            <div className="text-xs text-emerald-300">{data.settings.negocio}</div>
-          </div>
-        </div>
-        <nav className="flex-1 space-y-1">
-          {navItems.map((n) => (
-            <button key={n.id} onClick={() => setView(n.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${view === n.id ? "bg-emerald-800 text-white" : "text-emerald-200 hover:bg-emerald-900"}`}>
-              <n.icon size={18} /> {n.label}
-            </button>
-          ))}
-        </nav>
-        <button onClick={() => setModal({ type: "ajustes" })}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-emerald-200 hover:bg-emerald-900">
-          <Settings size={18} /> Ajustes
-        </button>
-      </aside>
-
-      {/* Contenido */}
-      <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-0">
-        {/* Header */}
-        <header className="bg-white border-b border-stone-200 px-4 sm:px-6 py-3 sticky top-0 z-30">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2 md:hidden">
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center"><PiggyBank size={18} /></div>
-              <span className="font-extrabold text-sm">Finanzas</span>
-            </div>
-            <h1 className="hidden md:block text-lg font-bold capitalize">{navItems.find((n) => n.id === view)?.label}</h1>
-            <div className="flex items-center gap-2 ml-auto">
-              {/* Filtro ámbito */}
-              <div className="flex rounded-lg border border-stone-300 overflow-hidden text-xs font-semibold">
-                {[["todo", "Todo"], ["negocio", "Negocio"], ["personal", "Personal"]].map(([v, l]) => (
-                  <button key={v} onClick={() => setScope(v)}
-                    className={`px-2.5 py-1.5 ${scope === v ? "bg-emerald-600 text-white" : "bg-white text-stone-600 hover:bg-stone-50"}`}>{l}</button>
-                ))}
-              </div>
-              {/* Usuario */}
-              <select value={currentUser} onChange={(e) => setCurrentUser(e.target.value)}
-                className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs bg-white text-stone-700">
-                {users.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
-              </select>
-            </div>
-          </div>
-        </header>
-
-        <main className="p-4 sm:p-6 max-w-6xl w-full mx-auto">
-          {view === "resumen" && (
-            <Resumen {...{ saldoTotal, totalPorCobrar, totalPorPagar, utilidadMes, ingresoMes, egresoMes, visAccounts, transactions, visTx, categories, accName, catName, setView }} />
-          )}
-          {view === "movimientos" && (
-            <Movimientos {...{ visTx, accName, catName, delTx, openAdd: () => setModal({ type: "tx" }) }} />
-          )}
-          {view === "cuentas" && (
-            <Cuentas {...{ visAccounts, transactions, setData, openAdd: () => setModal({ type: "cuenta" }) }} />
-          )}
-          {view === "cobrar" && (
-            <Docs kind="cobrar" {...{ docs: visRec, transactions, setData, accName, openAdd: () => setModal({ type: "cxc" }), openPay: (doc) => setModal({ type: "pago", kind: "cobrar", doc }) }} />
-          )}
-          {view === "pagar" && (
-            <Docs kind="pagar" {...{ docs: visPay, transactions, setData, accName, openAdd: () => setModal({ type: "cxp" }), openPay: (doc) => setModal({ type: "pago", kind: "pagar", doc }) }} />
-          )}
-          {view === "reportes" && (
-            <Reportes {...{ visTx, categories, catName }} />
-          )}
-        </main>
-      </div>
-
-      {/* Nav inferior (móvil) */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-emerald-950 text-emerald-100 flex justify-around items-center px-1 py-1.5 z-40">
-        {navItems.map((n) => (
-          <button key={n.id} onClick={() => setView(n.id)}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium ${view === n.id ? "text-emerald-300" : "text-emerald-100/70"}`}>
-            <n.icon size={20} /> {n.label}
-          </button>
-        ))}
-      </nav>
-
-      {/* Botón flotante agregar */}
-      {["movimientos", "cuentas", "cobrar", "pagar", "resumen"].includes(view) && (
-        <button
-          onClick={() => setModal({ type: view === "cuentas" ? "cuenta" : view === "cobrar" ? "cxc" : view === "pagar" ? "cxp" : "tx" })}
-          className="fixed right-5 bottom-24 md:bottom-6 z-40 w-14 h-14 rounded-full bg-emerald-600 text-white shadow-lg flex items-center justify-center hover:bg-emerald-700">
-          <Plus size={26} />
-        </button>
-      )}
-
-      {/* Modales */}
-      {modal?.type === "tx" && (
-        <TxModal {...{ accounts, categories, currentUser, scope, onClose: () => setModal(null), onSave: (tx) => { addTx(tx); setModal(null); } }} />
-      )}
-      {modal?.type === "cuenta" && (
-        <CuentaModal onClose={() => setModal(null)} onSave={(a) => { setData((d) => ({ ...d, accounts: [...d.accounts, { id: uid(), ...a }] })); setModal(null); }} />
-      )}
-      {modal?.type === "cxc" && (
-        <DocModal kind="cobrar" categories={categories} onClose={() => setModal(null)} onSave={(doc) => { setData((d) => ({ ...d, receivables: [{ id: uid(), ...doc }, ...d.receivables] })); setModal(null); }} />
-      )}
-      {modal?.type === "cxp" && (
-        <DocModal kind="pagar" categories={categories} onClose={() => setModal(null)} onSave={(doc) => { setData((d) => ({ ...d, payables: [{ id: uid(), ...doc }, ...d.payables] })); setModal(null); }} />
-      )}
-      {modal?.type === "pago" && (
-        <PagoModal {...{ accounts, doc: modal.doc, kind: modal.kind, transactions, currentUser, onClose: () => setModal(null),
-          onSave: (tx) => { addTx(tx); setModal(null); } }} />
-      )}
-      {modal?.type === "ajustes" && (
-        <AjustesModal {...{ data, setData, onClose: () => setModal(null) }} />
-      )}
-    </div>
-  );
-}
-
-/* ============================ Vista: Resumen ============================ */
-function Resumen({ saldoTotal, totalPorCobrar, totalPorPagar, utilidadMes, ingresoMes, egresoMes, visAccounts, transactions, visTx, categories, accName, catName }) {
-  const last6 = useMemo(() => {
-    const arr = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const mk = d.toISOString().slice(0, 7);
-      const ing = visTx.filter((t) => monthKey(t.date) === mk && t.type === "ingreso").reduce((s, t) => s + t.amount, 0);
-      const egr = visTx.filter((t) => monthKey(t.date) === mk && t.type === "egreso").reduce((s, t) => s + t.amount, 0);
-      arr.push({ mes: monthName(mk).split(" ")[0], Ingresos: ing, Egresos: egr });
-    }
-    return arr;
-  }, [visTx]);
-
-  const gastosCat = useMemo(() => {
-    const mk = monthKey(today());
-    const map = {};
-    visTx.filter((t) => t.type === "egreso" && monthKey(t.date) === mk).forEach((t) => {
-      map[catName(t.categoryId)] = (map[catName(t.categoryId)] || 0) + t.amount;
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [visTx]);
-
-  const recientes = visTx.slice(0, 6);
-
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Kpi label="Saldo total" value={usd(saldoTotal)} icon={Wallet} tone="teal" />
-        <Kpi label="Utilidad del mes" value={usd(utilidadMes)} icon={utilidadMes >= 0 ? TrendingUp : TrendingDown} tone={utilidadMes >= 0 ? "teal" : "rose"} />
-        <Kpi label="Te deben (por cobrar)" value={usd(totalPorCobrar)} icon={ArrowDownToLine} tone="indigo" />
-        <Kpi label="Debes (por pagar)" value={usd(totalPorPagar)} icon={ArrowUpFromLine} tone="amber" />
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
-          <h3 className="font-bold text-stone-800 mb-3 text-sm">Ingresos vs Egresos (últimos 6 meses)</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={last6} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f1f0" />
-              <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v) => usd(v)} />
-              <Bar dataKey="Ingresos" fill="#0d9488" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Egresos" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
-          <h3 className="font-bold text-stone-800 mb-3 text-sm">Gastos por categoría (este mes)</h3>
-          {gastosCat.length === 0 ? (
-            <p className="text-sm text-stone-400 py-12 text-center">Aún no hay gastos este mes.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={gastosCat} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75}>
-                  {gastosCat.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip formatter={(v) => usd(v)} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
-          <h3 className="font-bold text-stone-800 mb-3 text-sm">Saldo por cuenta</h3>
-          <div className="space-y-2">
-            {visAccounts.map((a) => (
-              <div key={a.id} className="flex items-center justify-between text-sm py-1.5 border-b border-stone-100 last:border-0">
-                <div className="flex items-center gap-2">
-                  <Building2 size={15} className="text-stone-400" />
-                  <span>{a.name}</span>
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{a.scope}</span>
-                </div>
-                <span className="font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>{usd(accountBalance(a, transactions))}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
-          <h3 className="font-bold text-stone-800 mb-3 text-sm">Movimientos recientes</h3>
-          <div className="space-y-2">
-            {recientes.length === 0 && <p className="text-sm text-stone-400">Sin movimientos.</p>}
-            {recientes.map((t) => (
-              <div key={t.id} className="flex items-center justify-between text-sm py-1.5 border-b border-stone-100 last:border-0">
-                <div className="min-w-0">
-                  <div className="truncate">{t.description || (t.type === "transferencia" ? "Transferencia" : catName(t.categoryId))}</div>
-                  <div className="text-xs text-stone-400">{fmtDate(t.date)} · {accName(t.accountId)}</div>
-                </div>
-                <span className={`font-semibold ${t.type === "ingreso" ? "text-emerald-600" : t.type === "egreso" ? "text-rose-600" : "text-stone-500"}`} style={{ fontVariantNumeric: "tabular-nums" }}>
-                  {t.type === "egreso" ? "-" : t.type === "ingreso" ? "+" : ""}{usd(t.amount)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ============================ Vista: Movimientos ============================ */
-function Movimientos({ visTx, accName, catName, delTx, openAdd }) {
-  const [filter, setFilter] = useState("todos");
-  const list = visTx.filter((t) => filter === "todos" || t.type === filter);
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex rounded-lg border border-stone-300 overflow-hidden text-xs font-semibold">
-          {[["todos", "Todos"], ["ingreso", "Ingresos"], ["egreso", "Egresos"], ["transferencia", "Transf."]].map(([v, l]) => (
-            <button key={v} onClick={() => setFilter(v)} className={`px-3 py-1.5 ${filter === v ? "bg-emerald-600 text-white" : "bg-white text-stone-600 hover:bg-stone-50"}`}>{l}</button>
-          ))}
-        </div>
-        <button onClick={openAdd} className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">
-          <Plus size={16} /> Nuevo movimiento
-        </button>
-      </div>
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-        {list.length === 0 ? (
-          <p className="text-sm text-stone-400 py-12 text-center">No hay movimientos.</p>
-        ) : list.map((t) => (
-          <div key={t.id} className="flex items-center gap-3 px-4 py-3 border-b border-stone-100 last:border-0 hover:bg-stone-50">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${t.type === "ingreso" ? "bg-emerald-50 text-emerald-600" : t.type === "egreso" ? "bg-rose-50 text-rose-600" : "bg-indigo-50 text-indigo-600"}`}>
-              {t.type === "ingreso" ? <ArrowDownToLine size={18} /> : t.type === "egreso" ? <ArrowUpFromLine size={18} /> : <ArrowLeftRight size={18} />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium truncate">{t.description || (t.type === "transferencia" ? "Transferencia entre cuentas" : catName(t.categoryId))}</div>
-              <div className="text-xs text-stone-400 truncate">
-                {fmtDate(t.date)} · {t.type === "transferencia" ? `${accName(t.accountId)} → ${accName(t.toAccountId)}` : `${accName(t.accountId)} · ${catName(t.categoryId)}`} · {t.who}
-              </div>
-            </div>
-            <span className={`text-sm font-bold shrink-0 ${t.type === "ingreso" ? "text-emerald-600" : t.type === "egreso" ? "text-rose-600" : "text-stone-500"}`} style={{ fontVariantNumeric: "tabular-nums" }}>
-              {t.type === "egreso" ? "-" : t.type === "ingreso" ? "+" : ""}{usd(t.amount)}
-            </span>
-            <button onClick={() => delTx(t.id)} className="text-stone-300 hover:text-rose-500 shrink-0"><Trash2 size={16} /></button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ============================ Vista: Cuentas ============================ */
-function Cuentas({ visAccounts, transactions, setData, openAdd }) {
-  const del = (id) => setData((d) => ({ ...d, accounts: d.accounts.filter((a) => a.id !== id) }));
-  const iconFor = (t) => (t === "efectivo" ? Coins : t === "tarjeta" ? Receipt : Building2);
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <button onClick={openAdd} className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">
-          <Plus size={16} /> Nueva cuenta
-        </button>
-      </div>
-      <div className="grid sm:grid-cols-2 gap-3">
-        {visAccounts.map((a) => {
-          const Icon = iconFor(a.type);
-          const bal = accountBalance(a, transactions);
-          return (
-            <div key={a.id} className="bg-white rounded-xl border border-stone-200 p-4 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center"><Icon size={22} /></div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-stone-800 truncate">{a.name}</div>
-                <div className="text-xs text-stone-400 capitalize">{a.type} · {a.scope}</div>
-              </div>
-              <div className="text-right">
-                <div className={`font-bold ${bal < 0 ? "text-rose-600" : "text-stone-800"}`} style={{ fontVariantNumeric: "tabular-nums" }}>{usd(bal)}</div>
-                <button onClick={() => del(a.id)} className="text-stone-300 hover:text-rose-500 mt-1"><Trash2 size={14} /></button>
-              </div>
-            </div>
-          );
-        })}
-        {visAccounts.length === 0 && <p className="text-sm text-stone-400">No hay cuentas en este ámbito.</p>}
-      </div>
-    </div>
-  );
-}
-
-/* ============================ Vista: CxC / CxP ============================ */
-function Docs({ kind, docs, transactions, setData, accName, openAdd, openPay }) {
-  const isCobrar = kind === "cobrar";
-  const key = isCobrar ? "receivables" : "payables";
-  const del = (id) => setData((d) => ({ ...d, [key]: d[key].filter((x) => x.id !== id) }));
-  const totalPend = docs.reduce((s, x) => s + Math.max(0, x.amount - paidOf(x.id, transactions)), 0);
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="bg-white rounded-xl border border-stone-200 px-4 py-2.5">
-          <span className="text-xs text-stone-500">{isCobrar ? "Total por cobrar" : "Total por pagar"}: </span>
-          <span className="font-bold" style={{ fontVariantNumeric: "tabular-nums" }}>{usd(totalPend)}</span>
-        </div>
-        <button onClick={openAdd} className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">
-          <Plus size={16} /> {isCobrar ? "Nueva cuenta por cobrar" : "Nueva cuenta por pagar"}
-        </button>
-      </div>
-      <div className="space-y-2">
-        {docs.length === 0 && <p className="text-sm text-stone-400 py-8 text-center">Nada por aquí todavía.</p>}
-        {docs.map((x) => {
-          const paid = paidOf(x.id, transactions);
-          const saldo = Math.max(0, x.amount - paid);
-          const st = docStatus(x, transactions);
-          const pct = Math.min(100, (paid / x.amount) * 100);
-          return (
-            <div key={x.id} className="bg-white rounded-xl border border-stone-200 p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-semibold text-stone-800 truncate">{isCobrar ? x.client : x.supplier}</div>
-                  <div className="text-xs text-stone-400 truncate">{x.description}</div>
-                  <div className="text-xs text-stone-400 mt-0.5">Vence: {fmtDate(x.dueDate)}</div>
-                </div>
-                <Badge status={st} />
-              </div>
-              <div className="mt-3 h-1.5 rounded-full bg-stone-100 overflow-hidden">
-                <div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} />
-              </div>
-              <div className="mt-2 flex items-center justify-between text-sm">
-                <span className="text-stone-500">Pagado {usd(paid)} de {usd(x.amount)}</span>
-                <span className="font-bold" style={{ fontVariantNumeric: "tabular-nums" }}>Saldo {usd(saldo)}</span>
-              </div>
-              <div className="mt-3 flex gap-2">
-                {saldo > 0.001 && (
-                  <button onClick={() => openPay(x)} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">
-                    {isCobrar ? "Registrar cobro" : "Registrar pago"}
-                  </button>
-                )}
-                <button onClick={() => del(x.id)} className="px-3 py-2 rounded-lg border border-stone-200 text-stone-400 hover:text-rose-500 hover:border-rose-200"><Trash2 size={16} /></button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ============================ Vista: Reportes ============================ */
-function Reportes({ visTx, categories, catName }) {
-  const [period, setPeriod] = useState("mes");
-  const now = new Date();
-  const inPeriod = (d) => {
-    if (period === "todo") return true;
-    if (period === "mes") return monthKey(d) === now.toISOString().slice(0, 7);
-    return (d || "").slice(0, 4) === String(now.getFullYear());
-  };
-  const txs = visTx.filter((t) => t.type !== "transferencia" && inPeriod(t.date));
-  const ingresos = txs.filter((t) => t.type === "ingreso");
-  const egresos = txs.filter((t) => t.type === "egreso");
-  const totIng = ingresos.reduce((s, t) => s + t.amount, 0);
-  const totEgr = egresos.reduce((s, t) => s + t.amount, 0);
-  const groupBy = (arr) => {
-    const m = {};
-    arr.forEach((t) => { m[catName(t.categoryId)] = (m[catName(t.categoryId)] || 0) + t.amount; });
-    return Object.entries(m).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  };
-  const ingCat = groupBy(ingresos);
-  const egrCat = groupBy(egresos);
-
-  const flujo = useMemo(() => {
-    const arr = [];
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const mk = d.toISOString().slice(0, 7);
-      const ing = visTx.filter((t) => monthKey(t.date) === mk && t.type === "ingreso").reduce((s, t) => s + t.amount, 0);
-      const egr = visTx.filter((t) => monthKey(t.date) === mk && t.type === "egreso").reduce((s, t) => s + t.amount, 0);
-      arr.push({ mes: monthName(mk).split(" ")[0], Flujo: ing - egr });
-    }
-    return arr;
-  }, [visTx]);
-
-  return (
-    <div className="space-y-5">
-      <div className="flex rounded-lg border border-stone-300 overflow-hidden text-xs font-semibold w-fit">
-        {[["mes", "Este mes"], ["anio", "Este año"], ["todo", "Todo"]].map(([v, l]) => (
-          <button key={v} onClick={() => setPeriod(v)} className={`px-3 py-1.5 ${period === v ? "bg-emerald-600 text-white" : "bg-white text-stone-600 hover:bg-stone-50"}`}>{l}</button>
-        ))}
-      </div>
-
-      {/* Estado de resultados */}
-      <div className="bg-white rounded-xl border border-stone-200 p-5">
-        <h3 className="font-bold text-stone-800 mb-4">Estado de resultados (ganancias y pérdidas)</h3>
-        <div className="space-y-1.5 text-sm">
-          <div className="font-semibold text-emerald-700">Ingresos</div>
-          {ingCat.map((c) => (
-            <div key={c.name} className="flex justify-between pl-3 text-stone-600"><span>{c.name}</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{usd(c.value)}</span></div>
-          ))}
-          {ingCat.length === 0 && <div className="pl-3 text-stone-400">Sin ingresos en el periodo</div>}
-          <div className="flex justify-between font-semibold border-t border-stone-200 pt-1.5"><span>Total ingresos</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{usd(totIng)}</span></div>
-
-          <div className="font-semibold text-rose-700 pt-3">Egresos</div>
-          {egrCat.map((c) => (
-            <div key={c.name} className="flex justify-between pl-3 text-stone-600"><span>{c.name}</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{usd(c.value)}</span></div>
-          ))}
-          {egrCat.length === 0 && <div className="pl-3 text-stone-400">Sin egresos en el periodo</div>}
-          <div className="flex justify-between font-semibold border-t border-stone-200 pt-1.5"><span>Total egresos</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{usd(totEgr)}</span></div>
-
-          <div className={`flex justify-between font-extrabold text-base border-t-2 border-stone-300 pt-2 mt-2 ${totIng - totEgr >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
-            <span>Utilidad neta</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{usd(totIng - totEgr)}</span>
-          </div>
-        </div>
-      </div>
-
+    <div className="grid lg:grid-cols-2 gap-4">
       <div className="bg-white rounded-xl border border-stone-200 p-4">
-        <h3 className="font-bold text-stone-800 mb-3 text-sm">Flujo de caja (12 meses)</h3>
-        <ResponsiveContainer width="100%" height={240}>
-          <LineChart data={flujo} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f1f0" />
-            <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v) => usd(v)} />
-            <Line type="monotone" dataKey="Flujo" stroke="#0d9488" strokeWidth={2.5} dot={{ r: 3 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        <h3 className="font-bold text-stone-800 mb-3 text-sm">Ingresos vs Egresos (6 meses)</h3>
+        <ResponsiveContainer width="100%" height={220}><BarChart data={last6} margin={{top:5,right:5,left:-15,bottom:0}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f1f0"/><XAxis dataKey="mes" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>usd(v)}/><Bar dataKey="Ingresos" fill="#0d9488" radius={[4,4,0,0]}/><Bar dataKey="Egresos" fill="#f59e0b" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer>
+      </div>
+      <div className="bg-white rounded-xl border border-stone-200 p-4">
+        <h3 className="font-bold text-stone-800 mb-3 text-sm">Gastos por categoría (este mes)</h3>
+        {gastosCat.length===0?<p className="text-sm text-stone-400 py-12 text-center">Aún no hay gastos este mes.</p>:
+        <ResponsiveContainer width="100%" height={220}><PieChart><Pie data={gastosCat} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75}>{gastosCat.map((e,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}</Pie><Tooltip formatter={v=>usd(v)}/><Legend wrapperStyle={{fontSize:11}}/></PieChart></ResponsiveContainer>}
       </div>
     </div>
-  );
-}
-
-/* ============================ Modales de formulario ============================ */
-function TxModal({ accounts, categories, currentUser, scope, onClose, onSave }) {
-  const [tipo, setTipo] = useState("ingreso");
-  const [fecha, setFecha] = useState(today());
-  const [accountId, setAccountId] = useState(accounts[0]?.id || "");
-  const [toAccountId, setToAccountId] = useState(accounts[1]?.id || "");
-  const [categoryId, setCategoryId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [sc, setSc] = useState(scope === "todo" ? "negocio" : scope);
-  const cats = categories.filter((c) => c.kind === tipo && (c.scope === sc || c.scope === "ambos"));
-  useEffect(() => { setCategoryId(cats[0]?.id || ""); }, [tipo, sc]);
-
-  const save = () => {
-    const amt = parseFloat(amount);
-    if (!amt || amt <= 0 || !accountId) return;
-    if (tipo === "transferencia") {
-      if (!toAccountId || toAccountId === accountId) return;
-      onSave({ date: fecha, type: tipo, accountId, toAccountId, amount: amt, description, scope: sc, who: currentUser });
-    } else {
-      onSave({ date: fecha, type: tipo, accountId, categoryId, amount: amt, description, scope: sc, who: currentUser });
-    }
-  };
-
-  return (
-    <Modal title="Nuevo movimiento" onClose={onClose}>
-      <Field label="Tipo">
-        <div className="flex rounded-lg border border-stone-300 overflow-hidden text-sm font-semibold">
-          {[["ingreso", "Ingreso"], ["egreso", "Egreso"], ["transferencia", "Transferencia"]].map(([v, l]) => (
-            <button key={v} onClick={() => setTipo(v)} className={`flex-1 py-2 ${tipo === v ? "bg-emerald-600 text-white" : "bg-white text-stone-600"}`}>{l}</button>
-          ))}
-        </div>
-      </Field>
-      <Field label="Ámbito">
-        <div className="flex rounded-lg border border-stone-300 overflow-hidden text-sm font-semibold">
-          {[["negocio", "Negocio"], ["personal", "Personal"]].map(([v, l]) => (
-            <button key={v} onClick={() => setSc(v)} className={`flex-1 py-2 ${sc === v ? "bg-emerald-600 text-white" : "bg-white text-stone-600"}`}>{l}</button>
-          ))}
-        </div>
-      </Field>
-      <Field label="Monto (USD)"><input type="number" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" /></Field>
-      <Field label={tipo === "transferencia" ? "Desde la cuenta" : "Cuenta"}>
-        <select className={inputCls} value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-          {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
-      </Field>
-      {tipo === "transferencia" ? (
-        <Field label="Hacia la cuenta">
-          <select className={inputCls} value={toAccountId} onChange={(e) => setToAccountId(e.target.value)}>
-            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </Field>
-      ) : (
-        <Field label="Categoría">
-          <select className={inputCls} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-            {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </Field>
-      )}
-      <Field label="Fecha"><input type="date" className={inputCls} value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
-      <Field label="Descripción (opcional)"><input className={inputCls} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej. Venta del día" /></Field>
-      <button onClick={save} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700 mt-1">Guardar movimiento</button>
-    </Modal>
-  );
-}
-
-function CuentaModal({ onClose, onSave }) {
-  const [name, setName] = useState("");
-  const [type, setType] = useState("banco");
-  const [scope, setScope] = useState("negocio");
-  const [opening, setOpening] = useState("");
-  return (
-    <Modal title="Nueva cuenta" onClose={onClose}>
-      <Field label="Nombre"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Banco BBVA" /></Field>
-      <Field label="Tipo">
-        <select className={inputCls} value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="banco">Cuenta de banco</option>
-          <option value="efectivo">Efectivo / caja</option>
-          <option value="tarjeta">Tarjeta de crédito</option>
-          <option value="digital">Billetera digital</option>
-        </select>
-      </Field>
-      <Field label="Ámbito">
-        <div className="flex rounded-lg border border-stone-300 overflow-hidden text-sm font-semibold">
-          {[["negocio", "Negocio"], ["personal", "Personal"]].map(([v, l]) => (
-            <button key={v} onClick={() => setScope(v)} className={`flex-1 py-2 ${scope === v ? "bg-emerald-600 text-white" : "bg-white text-stone-600"}`}>{l}</button>
-          ))}
-        </div>
-      </Field>
-      <Field label="Saldo inicial (USD)"><input type="number" className={inputCls} value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="0.00" /></Field>
-      <button onClick={() => name && onSave({ name, type, scope, opening: parseFloat(opening) || 0 })} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700">Crear cuenta</button>
-    </Modal>
-  );
-}
-
-function DocModal({ kind, categories, onClose, onSave }) {
-  const isCobrar = kind === "cobrar";
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [date, setDate] = useState(today());
-  const [dueDate, setDueDate] = useState(today());
-  const [amount, setAmount] = useState("");
-  const [scope, setScope] = useState("negocio");
-  const cats = categories.filter((c) => c.kind === (isCobrar ? "ingreso" : "egreso") && (c.scope === scope || c.scope === "ambos"));
-  const [categoryId, setCategoryId] = useState(cats[0]?.id || "");
-  useEffect(() => { const c = categories.filter((c) => c.kind === (isCobrar ? "ingreso" : "egreso") && (c.scope === scope || c.scope === "ambos")); setCategoryId(c[0]?.id || ""); }, [scope]);
-  const save = () => {
-    const amt = parseFloat(amount);
-    if (!name || !amt || amt <= 0) return;
-    const base = { description, date, dueDate, amount: amt, categoryId, scope };
-    onSave(isCobrar ? { client: name, ...base } : { supplier: name, ...base });
-  };
-  return (
-    <Modal title={isCobrar ? "Nueva cuenta por cobrar" : "Nueva cuenta por pagar"} onClose={onClose}>
-      <Field label={isCobrar ? "Cliente" : "Proveedor"}><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} /></Field>
-      <Field label="Monto total (USD)"><input type="number" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" /></Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Fecha"><input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-        <Field label="Vence"><input type="date" className={inputCls} value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
+    <div className="grid lg:grid-cols-2 gap-4">
+      <div className="bg-white rounded-xl border border-stone-200 p-4">
+        <h3 className="font-bold text-stone-800 mb-3 text-sm">Saldo por cuenta</h3>
+        <div className="space-y-2">{visAccounts.map(a=><div key={a.id} className="flex items-center justify-between text-sm py-1.5 border-b border-stone-100 last:border-0"><div className="flex items-center gap-2"><Icon name="building" size={15}/><span>{a.name}</span><span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{a.scope}</span></div><span className="font-semibold" style={{fontVariantNumeric:"tabular-nums"}}>{usd(accountBalance(a,transactions))}</span></div>)}</div>
       </div>
-      <Field label="Categoría">
-        <select className={inputCls} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-          {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-      </Field>
-      <Field label="Descripción (opcional)"><input className={inputCls} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
-      <button onClick={save} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700">Guardar</button>
-    </Modal>
-  );
-}
-
-function PagoModal({ accounts, doc, kind, transactions, currentUser, onClose, onSave }) {
-  const isCobrar = kind === "cobrar";
-  const saldo = Math.max(0, doc.amount - paidOf(doc.id, transactions));
-  const [accountId, setAccountId] = useState(accounts[0]?.id || "");
-  const [amount, setAmount] = useState(String(saldo));
-  const [date, setDate] = useState(today());
-  const save = () => {
-    const amt = parseFloat(amount);
-    if (!amt || amt <= 0 || !accountId) return;
-    onSave({
-      date, type: isCobrar ? "ingreso" : "egreso", accountId,
-      categoryId: doc.categoryId, amount: amt, scope: doc.scope, who: currentUser,
-      linkId: doc.id, linkType: isCobrar ? "cxc" : "cxp",
-      description: `${isCobrar ? "Cobro a " + doc.client : "Pago a " + doc.supplier}`,
-    });
-  };
-  return (
-    <Modal title={isCobrar ? "Registrar cobro" : "Registrar pago"} onClose={onClose}>
-      <p className="text-sm text-stone-500 mb-3">Saldo pendiente: <span className="font-bold text-stone-800">{usd(saldo)}</span></p>
-      <Field label="Monto (USD)"><input type="number" className={inputCls} value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
-      <Field label={isCobrar ? "Entra a la cuenta" : "Sale de la cuenta"}>
-        <select className={inputCls} value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-          {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
-      </Field>
-      <Field label="Fecha"><input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-      <button onClick={save} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700">Confirmar</button>
-    </Modal>
-  );
-}
-
-function AjustesModal({ data, setData, onClose }) {
-  const [tab, setTab] = useState("categorias");
-  const [newCat, setNewCat] = useState({ name: "", kind: "egreso", scope: "negocio" });
-  const [newUser, setNewUser] = useState({ name: "", role: "Familia" });
-  const [negocio, setNegocio] = useState(data.settings.negocio);
-
-  const addCat = () => { if (!newCat.name) return; setData((d) => ({ ...d, categories: [...d.categories, { id: uid(), ...newCat }] })); setNewCat({ name: "", kind: "egreso", scope: "negocio" }); };
-  const delCat = (id) => setData((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== id) }));
-  const addUser = () => { if (!newUser.name) return; setData((d) => ({ ...d, users: [...d.users, { id: uid(), ...newUser }] })); setNewUser({ name: "", role: "Familia" }); };
-  const delUser = (id) => setData((d) => ({ ...d, users: d.users.filter((u) => u.id !== id) }));
-  const reset = () => { if (confirm("¿Borrar TODOS los datos y empezar de cero? Esto no se puede deshacer.")) setData(seed()); };
-
-  return (
-    <Modal title="Ajustes" onClose={onClose}>
-      <div className="flex rounded-lg border border-stone-300 overflow-hidden text-xs font-semibold mb-4">
-        {[["categorias", "Categorías"], ["usuarios", "Usuarios"], ["general", "General"]].map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)} className={`flex-1 py-2 ${tab === v ? "bg-emerald-600 text-white" : "bg-white text-stone-600"}`}>{l}</button>
-        ))}
+      <div className="bg-white rounded-xl border border-stone-200 p-4">
+        <h3 className="font-bold text-stone-800 mb-3 text-sm">Movimientos recientes</h3>
+        <div className="space-y-2">{recientes.length===0&&<p className="text-sm text-stone-400">Sin movimientos.</p>}{recientes.map(t=><div key={t.id} className="flex items-center justify-between text-sm py-1.5 border-b border-stone-100 last:border-0"><div className="min-w-0"><div className="truncate">{t.description||catName(t.categoryId)}</div><div className="text-[11px] text-stone-400">{fmtDate(t.date)}</div></div><span className={`font-semibold ${t.type==="ingreso"?"text-emerald-600":t.type==="egreso"?"text-rose-600":"text-stone-500"}`} style={{fontVariantNumeric:"tabular-nums"}}>{t.type==="egreso"?"-":"+"}{usd(t.amount)}</span></div>)}</div>
       </div>
-
-      {tab === "categorias" && (
-        <div>
-          <div className="space-y-1.5 mb-4 max-h-48 overflow-y-auto">
-            {data.categories.map((c) => (
-              <div key={c.id} className="flex items-center justify-between text-sm border border-stone-100 rounded-lg px-3 py-1.5">
-                <span>{c.name} <span className={`text-xs px-1.5 py-0.5 rounded ${c.kind === "ingreso" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>{c.kind}</span> <span className="text-xs text-stone-400">{c.scope}</span></span>
-                <button onClick={() => delCat(c.id)} className="text-stone-300 hover:text-rose-500"><Trash2 size={14} /></button>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-stone-200 pt-3 space-y-2">
-            <input className={inputCls} placeholder="Nombre de categoría" value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
-            <div className="grid grid-cols-2 gap-2">
-              <select className={inputCls} value={newCat.kind} onChange={(e) => setNewCat({ ...newCat, kind: e.target.value })}>
-                <option value="ingreso">Ingreso</option><option value="egreso">Egreso</option>
-              </select>
-              <select className={inputCls} value={newCat.scope} onChange={(e) => setNewCat({ ...newCat, scope: e.target.value })}>
-                <option value="negocio">Negocio</option><option value="personal">Personal</option><option value="ambos">Ambos</option>
-              </select>
-            </div>
-            <button onClick={addCat} className="w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700">Agregar categoría</button>
-          </div>
-        </div>
-      )}
-
-      {tab === "usuarios" && (
-        <div>
-          <div className="space-y-1.5 mb-4">
-            {data.users.map((u) => (
-              <div key={u.id} className="flex items-center justify-between text-sm border border-stone-100 rounded-lg px-3 py-1.5">
-                <span>{u.name} <span className="text-xs text-stone-400">· {u.role}</span></span>
-                <button onClick={() => delUser(u.id)} className="text-stone-300 hover:text-rose-500"><Trash2 size={14} /></button>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-stone-200 pt-3 space-y-2">
-            <input className={inputCls} placeholder="Nombre" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
-            <select className={inputCls} value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
-              <option>Dueño</option><option>Familia</option><option>Empleado</option><option>Contador</option>
-            </select>
-            <button onClick={addUser} className="w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700">Agregar usuario</button>
-          </div>
-        </div>
-      )}
-
-      {tab === "general" && (
-        <div className="space-y-3">
-          <Field label="Nombre del negocio">
-            <div className="flex gap-2">
-              <input className={inputCls} value={negocio} onChange={(e) => setNegocio(e.target.value)} />
-              <button onClick={() => setData((d) => ({ ...d, settings: { ...d.settings, negocio } }))} className="bg-emerald-600 text-white px-3 rounded-lg text-sm font-semibold">Guardar</button>
-            </div>
-          </Field>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
-            Los datos se guardan automáticamente y se comparten con quienes abran esta misma app.
-          </div>
-          <button onClick={reset} className="w-full border border-rose-300 text-rose-600 py-2 rounded-lg font-semibold text-sm hover:bg-rose-50">Borrar todo y empezar de cero</button>
-        </div>
-      )}
-    </Modal>
-  );
+    </div>
+  </div>;
 }
+
+function Movimientos({visTx,accName,catName,delTx,openAdd}){
+  const[filter,setFilter]=useState("todos");
+  const list=visTx.filter(t=>filter==="todos"||t.type===filter);
+  return <div className="space-y-4">
+    <div className="flex items-center justify-between gap-2 flex-wrap">
+      <div className="flex rounded-lg border border-stone-300 overflow-hidden text-xs font-semibold">
+        {[["todos","Todos"],["ingreso","Ingresos"],["egreso","Egresos"],["transferencia","Transf."]].map(([v,l])=><button key={v} onClick={()=>setFilter(v)} className={`px-3 py-1.5 ${filter===v?"bg-emerald-600 text-white":"bg-white text-stone-600 hover:bg-stone-50"}`}>{l}</button>)}
+      </div>
+      <button onClick={openAdd} className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700"><Icon name="plus" size={14}/> Nuevo</button>
+    </div>
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      {list.length===0?<p className="text-sm text-stone-400 py-12 text-center">No hay movimientos.</p>:list.map(t=>
+      <div key={t.id} className="flex items-center gap-3 px-4 py-3 border-b border-stone-100 last:border-0 hover:bg-stone-50">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${t.type==="ingreso"?"bg-emerald-50":"bg-rose-50"}`}><Icon name={t.type==="ingreso"?"arrowDown":t.type==="egreso"?"arrowUp":"exchange"} size={18}/></div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium truncate">{t.description||catName(t.categoryId)}</div>
+          <div className="text-[11px] text-stone-400 truncate">{fmtDate(t.date)} · {t.type==="transferencia"?`${accName(t.accountId)} → ${accName(t.toAccountId)}`:accName(t.accountId)} · {t.who}</div>
+        </div>
+        <span className={`text-sm font-bold shrink-0 ${t.type==="ingreso"?"text-emerald-600":t.type==="egreso"?"text-rose-600":"text-stone-500"}`} style={{fontVariantNumeric:"tabular-nums"}}>{t.type==="egreso"?"-":"+"}{usd(t.amount)}</span>
+        <button onClick={()=>delTx(t.id)} className="text-stone-300 hover:text-rose-500 shrink-0"><Icon name="trash" size={16}/></button>
+      </div>)}
+    </div>
+  </div>;
+}
+
+function Cuentas({visAccounts,transactions,setData,openAdd}){
+  const del=id=>setData(d=>({...d,accounts:d.accounts.filter(a=>a.id!==id)}));
+  return <div className="space-y-4">
+    <div className="flex justify-end"><button onClick={openAdd} className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700"><Icon name="plus" size={14}/> Nueva cuenta</button></div>
+    <div className="grid sm:grid-cols-2 gap-3">{visAccounts.map(a=>{
+      const bal=accountBalance(a,transactions);
+      return <div key={a.id} className="bg-white rounded-xl border border-stone-200 p-4 flex items-center gap-3">
+        <div className="w-11 h-11 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center"><Icon name={a.type==="efectivo"?"coins":"building"} size={22}/></div>
+        <div className="flex-1 min-w-0"><div className="font-semibold text-stone-800 truncate">{a.name}</div><div className="text-[11px] text-stone-400 capitalize">{a.type} · {a.scope}</div></div>
+        <div className="text-right"><div className={`font-bold ${bal<0?"text-rose-600":"text-stone-800"}`} style={{fontVariantNumeric:"tabular-nums"}}>{usd(bal)}</div><button onClick={()=>del(a.id)} className="text-stone-300 hover:text-rose-500 mt-1"><Icon name="trash" size={14}/></button></div>
+      </div>;})}
+      {visAccounts.length===0&&<p className="text-sm text-stone-400">No hay cuentas.</p>}
+    </div>
+  </div>;
+}
+
+function Docs({kind,docs,transactions,setData,accounts,openAdd,openPay}){
+  const isCobrar=kind==="cobrar";
+  const key=isCobrar?"receivables":"payables";
+  const del=id=>setData(d=>({...d,[key]:d[key].filter(x=>x.id!==id)}));
+  const totalPend=docs.reduce((s,x)=>s+Math.max(0,x.amount-paidOf(x.id,transactions)),0);
+  return <div className="space-y-4">
+    <div className="flex items-center justify-between gap-2">
+      <div className="bg-white rounded-xl border border-stone-200 px-4 py-2.5"><span className="text-xs text-stone-500">{isCobrar?"Total por cobrar":"Total por pagar"}: </span><span className="font-bold" style={{fontVariantNumeric:"tabular-nums"}}>{usd(totalPend)}</span></div>
+      <button onClick={openAdd} className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700"><Icon name="plus" size={14}/> Nuevo</button>
+    </div>
+    <div className="space-y-2">{docs.length===0&&<p className="text-sm text-stone-400 py-8 text-center">Nada por aquí todavía.</p>}{docs.map(x=>{
+      const paid=paidOf(x.id,transactions),saldo=Math.max(0,x.amount-paid),st=docStatus(x,transactions),pct=Math.min(100,(paid/x.amount)*100);
+      return <div key={x.id} className="bg-white rounded-xl border border-stone-200 p-4">
+        <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="font-semibold text-stone-800 truncate">{isCobrar?x.client:x.supplier}</div><div className="text-[11px] text-stone-400 truncate">{x.description}</div><div className="text-[11px] text-stone-400 mt-0.5">Vence: {fmtDate(x.dueDate)}</div></div><Badge status={st}/></div>
+        <div className="mt-3 h-1.5 rounded-full bg-stone-100 overflow-hidden"><div className="h-full bg-emerald-500" style={{width:`${pct}%`}}/></div>
+        <div className="mt-2 flex items-center justify-between text-sm"><span className="text-stone-500">Pagado {usd(paid)} de {usd(x.amount)}</span><span className="font-bold" style={{fontVariantNumeric:"tabular-nums"}}>Saldo {usd(saldo)}</span></div>
+        <div className="mt-3 flex gap-2">{saldo>0.001&&<button onClick={()=>openPay(x)} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">{isCobrar?"Registrar cobro":"Registrar pago"}</button>}<button onClick={()=>del(x.id)} className="px-3 py-2 rounded-lg border border-stone-200 text-stone-400 hover:text-rose-500 hover:border-rose-200"><Icon name="trash" size={16}/></button></div>
+      </div>;})}
+    </div>
+  </div>;
+}
+
+function Reportes({visTx,catName}){
+  const[period,setPeriod]=useState("mes");
+  const now=new Date();
+  const inPeriod=d=>{if(period==="todo")return true;if(period==="mes")return monthKey(d)===now.toISOString().slice(0,7);return(d||"").slice(0,4)===String(now.getFullYear());};
+  const txs=visTx.filter(t=>t.type!=="transferencia"&&inPeriod(t.date));
+  const ingresos=txs.filter(t=>t.type==="ingreso"),egresos=txs.filter(t=>t.type==="egreso");
+  const totIng=ingresos.reduce((s,t)=>s+t.amount,0),totEgr=egresos.reduce((s,t)=>s+t.amount,0);
+  const groupBy=arr=>{const m={};arr.forEach(t=>{m[catName(t.categoryId)]=(m[catName(t.categoryId)]||0)+t.amount;});return Object.entries(m).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);};
+  const ingCat=groupBy(ingresos),egrCat=groupBy(egresos);
+  const flujo=useMemo(()=>{const arr=[];for(let i=11;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const mk=d.toISOString().slice(0,7);const ing=visTx.filter(t=>monthKey(t.date)===mk&&t.type==="ingreso").reduce((s,t)=>s+t.amount,0);const egr=visTx.filter(t=>monthKey(t.date)===mk&&t.type==="egreso").reduce((s,t)=>s+t.amount,0);arr.push({mes:monthName(mk).split(" ")[0],Flujo:ing-egr});}return arr;},[visTx]);
+
+  return <div className="space-y-5">
+    <div className="flex rounded-lg border border-stone-300 overflow-hidden text-xs font-semibold w-fit">
+      {[["mes","Este mes"],["anio","Este año"],["todo","Todo"]].map(([v,l])=><button key={v} onClick={()=>setPeriod(v)} className={`px-3 py-1.5 ${period===v?"bg-emerald-600 text-white":"bg-white text-stone-600 hover:bg-stone-50"}`}>{l}</button>)}
+    </div>
+    <div className="bg-white rounded-xl border border-stone-200 p-5">
+      <h3 className="font-bold text-stone-800 mb-4">Estado de resultados</h3>
+      <div className="space-y-1.5 text-sm">
+        <div className="font-semibold text-emerald-700">Ingresos</div>
+        {ingCat.map(c=><div key={c.name} className="flex justify-between pl-3 text-stone-600"><span>{c.name}</span><span style={{fontVariantNumeric:"tabular-nums"}}>{usd(c.value)}</span></div>)}
+        {ingCat.length===0&&<div className="pl-3 text-stone-400">Sin ingresos</div>}
+        <div className="flex justify-between font-semibold border-t border-stone-200 pt-1.5"><span>Total ingresos</span><span style={{fontVariantNumeric:"tabular-nums"}}>{usd(totIng)}</span></div>
+        <div className="font-semibold text-rose-700 pt-3">Egresos</div>
+        {egrCat.map(c=><div key={c.name} className="flex justify-between pl-3 text-stone-600"><span>{c.name}</span><span style={{fontVariantNumeric:"tabular-nums"}}>{usd(c.value)}</span></div>)}
+        {egrCat.length===0&&<div className="pl-3 text-stone-400">Sin egresos</div>}
+        <div className="flex justify-between font-semibold border-t border-stone-200 pt-1.5"><span>Total egresos</span><span style={{fontVariantNumeric:"tabular-nums"}}>{usd(totEgr)}</span></div>
+        <div className={`flex justify-between font-extrabold text-base border-t-2 border-stone-300 pt-2 mt-2 ${totIng-totEgr>=0?"text-emerald-700":"text-rose-700"}`}><span>Utilidad neta</span><span style={{fontVariantNumeric:"tabular-nums"}}>{usd(totIng-totEgr)}</span></div>
+      </div>
+    </div>
+    <div className="bg-white rounded-xl border border-stone-200 p-4">
+      <h3 className="font-bold text-stone-800 mb-3 text-sm">Flujo de caja (12 meses)</h3>
+      <ResponsiveContainer width="100%" height={240}><LineChart data={flujo} margin={{top:5,right:5,left:-15,bottom:0}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f1f0"/><XAxis dataKey="mes" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>usd(v)}/><Line type="monotone" dataKey="Flujo" stroke="#0d9488" strokeWidth={2.5} dot={{r:3}}/></LineChart></ResponsiveContainer>
+    </div>
+  </div>;
+}
+
+/* ========= MODALES ========= */
+function TxModal({accounts,categories,currentUser,scope,onClose,onSave}){
+  const[tipo,setTipo]=useState("ingreso");
+  const[fecha,setFecha]=useState(todayStr());
+  const[accountId,setAccountId]=useState(accounts[0]?.id||"");
+  const[toAccountId,setToAccountId]=useState(accounts[1]?.id||"");
+  const[categoryId,setCategoryId]=useState("");
+  const[amount,setAmount]=useState("");
+  const[description,setDescription]=useState("");
+  const[sc,setSc]=useState(scope==="todo"?"negocio":scope);
+  const cats=categories.filter(c=>c.kind===tipo&&(c.scope===sc||c.scope==="ambos"));
+  useEffect(()=>{setCategoryId(cats[0]?.id||"");},[tipo,sc]);
+  const save=()=>{const amt=parseFloat(amount);if(!amt||amt<=0||!accountId)return;if(tipo==="transferencia"){if(!toAccountId||toAccountId===accountId)return;onSave({date:fecha,type:tipo,accountId,toAccountId,amount:amt,description,scope:sc,who:currentUser});}else{onSave({date:fecha,type:tipo,accountId,categoryId,amount:amt,description,scope:sc,who:currentUser});}};
+  return <Modal title="Nuevo movimiento" onClose={onClose}>
+    <Field label="Tipo"><div className="flex rounded-lg border border-stone-300 overflow-hidden text-sm font-semibold">{[["ingreso","Ingreso"],["egreso","Egreso"],["transferencia","Transferencia"]].map(([v,l])=><button key={v} onClick={()=>setTipo(v)} className={`flex-1 py-2 ${tipo===v?"bg-emerald-600 text-white":"bg-white text-stone-600"}`}>{l}</button>)}</div></Field>
+    <Field label="Ámbito"><div className="flex rounded-lg border border-stone-300 overflow-hidden text-sm font-semibold">{[["negocio","Negocio"],["personal","Personal"]].map(([v,l])=><button key={v} onClick={()=>setSc(v)} className={`flex-1 py-2 ${sc===v?"bg-emerald-600 text-white":"bg-white text-stone-600"}`}>{l}</button>)}</div></Field>
+    <Field label="Monto (USD)"><input type="number" className={inputCls} value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00"/></Field>
+    <Field label={tipo==="transferencia"?"Desde la cuenta":"Cuenta"}><select className={inputCls} value={accountId} onChange={e=>setAccountId(e.target.value)}>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
+    {tipo==="transferencia"?<Field label="Hacia la cuenta"><select className={inputCls} value={toAccountId} onChange={e=>setToAccountId(e.target.value)}>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>:
+    <Field label="Categoría"><select className={inputCls} value={categoryId} onChange={e=>setCategoryId(e.target.value)}>{cats.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}
+    <Field label="Fecha"><input type="date" className={inputCls} value={fecha} onChange={e=>setFecha(e.target.value)}/></Field>
+    <Field label="Descripción (opcional)"><input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Ej. Venta del día"/></Field>
+    <button onClick={save} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700 mt-1">Guardar movimiento</button>
+  </Modal>;
+}
+
+function CuentaModal({onClose,onSave}){
+  const[name,setName]=useState("");const[type,setType]=useState("banco");const[scope,setScope]=useState("negocio");const[opening,setOpening]=useState("");
+  return <Modal title="Nueva cuenta" onClose={onClose}>
+    <Field label="Nombre"><input className={inputCls} value={name} onChange={e=>setName(e.target.value)} placeholder="Ej. Banco BBVA"/></Field>
+    <Field label="Tipo"><select className={inputCls} value={type} onChange={e=>setType(e.target.value)}><option value="banco">Cuenta de banco</option><option value="efectivo">Efectivo / caja</option><option value="tarjeta">Tarjeta de crédito</option><option value="digital">Billetera digital</option></select></Field>
+    <Field label="Ámbito"><div className="flex rounded-lg border border-stone-300 overflow-hidden text-sm font-semibold">{[["negocio","Negocio"],["personal","Personal"]].map(([v,l])=><button key={v} onClick={()=>setScope(v)} className={`flex-1 py-2 ${scope===v?"bg-emerald-600 text-white":"bg-white text-stone-600"}`}>{l}</button>)}</div></Field>
+    <Field label="Saldo inicial (USD)"><input type="number" className={inputCls} value={opening} onChange={e=>setOpening(e.target.value)} placeholder="0.00"/></Field>
+    <button onClick={()=>name&&onSave({name,type,scope,opening:parseFloat(opening)||0})} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700">Crear cuenta</button>
+  </Modal>;
+}
+
+function DocModal({kind,categories,onClose,onSave}){
+  const isCobrar=kind==="cobrar";
+  const[name,setName]=useState("");const[description,setDescription]=useState("");const[date,setDate]=useState(todayStr());const[dueDate,setDueDate]=useState(todayStr());const[amount,setAmount]=useState("");const[scope,setScope]=useState("negocio");
+  const cats=categories.filter(c=>c.kind===(isCobrar?"ingreso":"egreso")&&(c.scope===scope||c.scope==="ambos"));
+  const[categoryId,setCategoryId]=useState(cats[0]?.id||"");
+  useEffect(()=>{const c=categories.filter(c=>c.kind===(isCobrar?"ingreso":"egreso")&&(c.scope===scope||c.scope==="ambos"));setCategoryId(c[0]?.id||"");},[scope]);
+  const save=()=>{const amt=parseFloat(amount);if(!name||!amt||amt<=0)return;const base={description,date,dueDate,amount:amt,categoryId,scope};onSave(isCobrar?{client:name,...base}:{supplier:name,...base});};
+  return <Modal title={isCobrar?"Nueva cuenta por cobrar":"Nueva cuenta por pagar"} onClose={onClose}>
+    <Field label={isCobrar?"Cliente":"Proveedor"}><input className={inputCls} value={name} onChange={e=>setName(e.target.value)}/></Field>
+    <Field label="Monto total (USD)"><input type="number" className={inputCls} value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00"/></Field>
+    <div className="grid grid-cols-2 gap-3"><Field label="Fecha"><input type="date" className={inputCls} value={date} onChange={e=>setDate(e.target.value)}/></Field><Field label="Vence"><input type="date" className={inputCls} value={dueDate} onChange={e=>setDueDate(e.target.value)}/></Field></div>
+    <Field label="Categoría"><select className={inputCls} value={categoryId} onChange={e=>setCategoryId(e.target.value)}>{cats.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+    <Field label="Descripción (opcional)"><input className={inputCls} value={description} onChange={e=>setDescription(e.target.value)}/></Field>
+    <button onClick={save} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700">Guardar</button>
+  </Modal>;
+}
+
+function PagoModal({accounts,doc,kind,transactions,currentUser,onClose,onSave}){
+  const isCobrar=kind==="cobrar";
+  const saldo=Math.max(0,doc.amount-paidOf(doc.id,transactions));
+  const[accountId,setAccountId]=useState(accounts[0]?.id||"");const[amount,setAmount]=useState(String(saldo));const[date,setDate]=useState(todayStr());
+  const save=()=>{const amt=parseFloat(amount);if(!amt||amt<=0||!accountId)return;onSave({date,type:isCobrar?"ingreso":"egreso",accountId,categoryId:doc.categoryId,amount:amt,scope:doc.scope,who:currentUser,linkId:doc.id,linkType:isCobrar?"cxc":"cxp",description:`${isCobrar?"Cobro a "+doc.client:"Pago a "+doc.supplier}`});};
+  return <Modal title={isCobrar?"Registrar cobro":"Registrar pago"} onClose={onClose}>
+    <p className="text-sm text-stone-500 mb-3">Saldo pendiente: <span className="font-bold text-stone-800">{usd(saldo)}</span></p>
+    <Field label="Monto (USD)"><input type="number" className={inputCls} value={amount} onChange={e=>setAmount(e.target.value)}/></Field>
+    <Field label={isCobrar?"Entra a la cuenta":"Sale de la cuenta"}><select className={inputCls} value={accountId} onChange={e=>setAccountId(e.target.value)}>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
+    <Field label="Fecha"><input type="date" className={inputCls} value={date} onChange={e=>setDate(e.target.value)}/></Field>
+    <button onClick={save} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700">Confirmar</button>
+  </Modal>;
+}
+
+function AjustesModal({data,setData,onClose}){
+  const[tab,setTab]=useState("categorias");
+  const[newCat,setNewCat]=useState({name:"",kind:"egreso",scope:"negocio"});
+  const[newUser,setNewUser]=useState({name:"",role:"Familia"});
+  const[negocio,setNegocio]=useState(data.settings.negocio);
+  const addCat=()=>{if(!newCat.name)return;setData(d=>({...d,categories:[...d.categories,{id:uid(),...newCat}]}));setNewCat({name:"",kind:"egreso",scope:"negocio"});};
+  const delCat=id=>setData(d=>({...d,categories:d.categories.filter(c=>c.id!==id)}));
+  const addUser=()=>{if(!newUser.name)return;setData(d=>({...d,users:[...d.users,{id:uid(),...newUser}]}));setNewUser({name:"",role:"Familia"});};
+  const delUser=id=>setData(d=>({...d,users:d.users.filter(u=>u.id!==id)}));
+  const reset=()=>{if(confirm("¿Borrar TODOS los datos y empezar de cero?"))setData(seed());};
+  return <Modal title="Ajustes" onClose={onClose}>
+    <div className="flex rounded-lg border border-stone-300 overflow-hidden text-xs font-semibold mb-4">{[["categorias","Categorías"],["usuarios","Usuarios"],["general","General"]].map(([v,l])=><button key={v} onClick={()=>setTab(v)} className={`flex-1 py-2 ${tab===v?"bg-emerald-600 text-white":"bg-white text-stone-600"}`}>{l}</button>)}</div>
+    {tab==="categorias"&&<div>
+      <div className="space-y-1.5 mb-4 max-h-48 overflow-y-auto">{data.categories.map(c=><div key={c.id} className="flex items-center justify-between text-sm border border-stone-100 rounded-lg px-3 py-1.5"><span>{c.name} <span className={`text-xs px-1.5 py-0.5 rounded ${c.kind==="ingreso"?"bg-emerald-100 text-emerald-700":"bg-rose-100 text-rose-700"}`}>{c.kind}</span></span><button onClick={()=>delCat(c.id)} className="text-stone-300 hover:text-rose-500"><Icon name="trash" size={14}/></button></div>)}</div>
+      <div className="border-t border-stone-200 pt-3 space-y-2"><input className={inputCls} placeholder="Nombre de categoría" value={newCat.name} onChange={e=>setNewCat({...newCat,name:e.target.value})}/><div className="grid grid-cols-2 gap-2"><select className={inputCls} value={newCat.kind} onChange={e=>setNewCat({...newCat,kind:e.target.value})}><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select><select className={inputCls} value={newCat.scope} onChange={e=>setNewCat({...newCat,scope:e.target.value})}><option value="negocio">Negocio</option><option value="personal">Personal</option><option value="ambos">Ambos</option></select></div><button onClick={addCat} className="w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700">Agregar categoría</button></div>
+    </div>}
+    {tab==="usuarios"&&<div>
+      <div className="space-y-1.5 mb-4">{data.users.map(u=><div key={u.id} className="flex items-center justify-between text-sm border border-stone-100 rounded-lg px-3 py-1.5"><span>{u.name} <span className="text-xs text-stone-400">· {u.role}</span></span><button onClick={()=>delUser(u.id)} className="text-stone-300 hover:text-rose-500"><Icon name="trash" size={14}/></button></div>)}</div>
+      <div className="border-t border-stone-200 pt-3 space-y-2"><input className={inputCls} placeholder="Nombre" value={newUser.name} onChange={e=>setNewUser({...newUser,name:e.target.value})}/><select className={inputCls} value={newUser.role} onChange={e=>setNewUser({...newUser,role:e.target.value})}><option>Dueño</option><option>Familia</option><option>Empleado</option><option>Contador</option></select><button onClick={addUser} className="w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700">Agregar usuario</button></div>
+    </div>}
+    {tab==="general"&&<div className="space-y-3">
+      <Field label="Nombre del negocio"><div className="flex gap-2"><input className={inputCls} value={negocio} onChange={e=>setNegocio(e.target.value)}/><button onClick={()=>setData(d=>({...d,settings:{...d.settings,negocio}}))} className="bg-emerald-600 text-white px-3 rounded-lg text-sm font-semibold">OK</button></div></Field>
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">Los datos se guardan en este navegador. Cada dispositivo maneja su propia copia.</div>
+      <button onClick={reset} className="w-full border border-rose-300 text-rose-600 py-2 rounded-lg font-semibold text-sm hover:bg-rose-50">Borrar todo y empezar de cero</button>
+    </div>}
+  </Modal>;
+}
+
+/* ========= APP PRINCIPAL ========= */
+function App(){
+  const[data,setData]=useState(()=>loadData()||seed());
+  const[view,setView]=useState("resumen");
+  const[scope,setScope]=useState("todo");
+  const[currentUser,setCurrentUser]=useState("Yo");
+  const[modal,setModal]=useState(null);
+
+  useEffect(()=>{saveData(data);},[data]);
+
+  const{accounts,categories,transactions,receivables,payables,users}=data;
+  const inScope=s=>scope==="todo"||s===scope;
+  const update=patch=>setData(d=>({...d,...patch}));
+  const addTx=tx=>setData(d=>({...d,transactions:[{id:uid(),...tx},...d.transactions]}));
+  const delTx=id=>setData(d=>({...d,transactions:d.transactions.filter(t=>t.id!==id)}));
+
+  const visAccounts=accounts.filter(a=>inScope(a.scope));
+  const saldoTotal=visAccounts.reduce((s,a)=>s+accountBalance(a,transactions),0);
+  const visRec=receivables.filter(r=>inScope(r.scope)),visPay=payables.filter(p=>inScope(p.scope));
+  const totalPorCobrar=visRec.reduce((s,r)=>s+Math.max(0,r.amount-paidOf(r.id,transactions)),0);
+  const totalPorPagar=visPay.reduce((s,p)=>s+Math.max(0,p.amount-paidOf(p.id,transactions)),0);
+  const visTx=transactions.filter(t=>inScope(t.scope));
+  const mkNow=monthKey(todayStr());
+  const mes=visTx.filter(t=>monthKey(t.date)===mkNow&&t.type!=="transferencia");
+  const ingresoMes=mes.filter(t=>t.type==="ingreso").reduce((s,t)=>s+t.amount,0);
+  const egresoMes=mes.filter(t=>t.type==="egreso").reduce((s,t)=>s+t.amount,0);
+  const utilidadMes=ingresoMes-egresoMes;
+  const catName=id=>categories.find(c=>c.id===id)?.name||"Sin categoría";
+  const accName=id=>accounts.find(a=>a.id===id)?.name||"—";
+
+  const navItems=[{id:"resumen",label:"Resumen",icon:"dashboard"},{id:"movimientos",label:"Movimientos",icon:"exchange"},{id:"cuentas",label:"Cuentas",icon:"wallet"},{id:"cobrar",label:"Por cobrar",icon:"arrowDown"},{id:"pagar",label:"Por pagar",icon:"arrowUp"},{id:"reportes",label:"Reportes",icon:"chart"}];
+
+  return <div className="min-h-screen bg-stone-50 text-stone-800 flex">
+    {/* Sidebar desktop */}
+    <aside className="hidden md:flex md:flex-col w-56 bg-emerald-950 text-emerald-50 p-4 shrink-0">
+      <div className="flex items-center gap-2 px-2 mb-6"><div className="w-9 h-9 rounded-lg bg-emerald-400 text-emerald-950 flex items-center justify-center"><Icon name="piggy" size={20}/></div><div className="leading-tight"><div className="font-extrabold text-sm">Finanzas</div><div className="text-[11px] text-emerald-300">{data.settings.negocio}</div></div></div>
+      <nav className="flex-1 space-y-1">{navItems.map(n=><button key={n.id} onClick={()=>setView(n.id)} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${view===n.id?"bg-emerald-800 text-white":"text-emerald-200 hover:bg-emerald-900"}`}><Icon name={n.icon} size={18}/> {n.label}</button>)}</nav>
+      <button onClick={()=>setModal({type:"ajustes"})} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-emerald-200 hover:bg-emerald-900"><Icon name="settings" size={18}/> Ajustes</button>
+    </aside>
+
+    <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-0">
+      {/* Header */}
+      <header className="bg-white border-b border-stone-200 px-4 sm:px-6 py-3 sticky top-0 z-30">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 md:hidden"><div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center"><Icon name="piggy" size={18}/></div><span className="font-extrabold text-sm">Finanzas</span></div>
+          <h1 className="hidden md:block text-lg font-bold capitalize">{navItems.find(n=>n.id===view)?.label}</h1>
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="flex rounded-lg border border-stone-300 overflow-hidden text-xs font-semibold">{[["todo","Todo"],["negocio","Negocio"],["personal","Personal"]].map(([v,l])=><button key={v} onClick={()=>setScope(v)} className={`px-2.5 py-1.5 ${scope===v?"bg-emerald-600 text-white":"bg-white text-stone-600 hover:bg-stone-50"}`}>{l}</button>)}</div>
+            <select value={currentUser} onChange={e=>setCurrentUser(e.target.value)} className="rounded-lg border border-stone-300 px-2 py-1.5 text-xs bg-white text-stone-700">{users.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}</select>
+          </div>
+        </div>
+      </header>
+
+      <main className="p-4 sm:p-6 max-w-6xl w-full mx-auto">
+        {view==="resumen"&&<Resumen {...{saldoTotal,totalPorCobrar,totalPorPagar,utilidadMes,visTx,visAccounts,transactions,catName}}/>}
+        {view==="movimientos"&&<Movimientos {...{visTx,accName,catName,delTx,openAdd:()=>setModal({type:"tx"})}}/>}
+        {view==="cuentas"&&<Cuentas {...{visAccounts,transactions,setData,openAdd:()=>setModal({type:"cuenta"})}}/>}
+        {view==="cobrar"&&<Docs kind="cobrar" {...{docs:visRec,transactions,setData,accounts,openAdd:()=>setModal({type:"cxc"}),openPay:doc=>setModal({type:"pago",kind:"cobrar",doc})}}/>}
+        {view==="pagar"&&<Docs kind="pagar" {...{docs:visPay,transactions,setData,accounts,openAdd:()=>setModal({type:"cxp"}),openPay:doc=>setModal({type:"pago",kind:"pagar",doc})}}/>}
+        {view==="reportes"&&<Reportes {...{visTx,catName}}/>}
+      </main>
+    </div>
+
+    {/* Nav móvil */}
+    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-emerald-950 text-emerald-100 flex justify-around items-center px-1 py-1.5 z-40">
+      {navItems.map(n=><button key={n.id} onClick={()=>setView(n.id)} className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium ${view===n.id?"text-emerald-300":"text-emerald-100/70"}`}><Icon name={n.icon} size={20}/> {n.label}</button>)}
+    </nav>
+
+    {/* Botón flotante */}
+    {["movimientos","cuentas","cobrar","pagar","resumen"].includes(view)&&<button onClick={()=>setModal({type:view==="cuentas"?"cuenta":view==="cobrar"?"cxc":view==="pagar"?"cxp":"tx"})} className="fixed right-5 bottom-24 md:bottom-6 z-40 w-14 h-14 rounded-full bg-emerald-600 text-white shadow-lg flex items-center justify-center hover:bg-emerald-700 text-2xl">+</button>}
+
+    {/* Modales */}
+    {modal?.type==="tx"&&<TxModal {...{accounts,categories,currentUser,scope,onClose:()=>setModal(null),onSave:tx=>{addTx(tx);setModal(null);}}}/>}
+    {modal?.type==="cuenta"&&<CuentaModal onClose={()=>setModal(null)} onSave={a=>{setData(d=>({...d,accounts:[...d.accounts,{id:uid(),...a}]}));setModal(null);}}/>}
+    {modal?.type==="cxc"&&<DocModal kind="cobrar" categories={categories} onClose={()=>setModal(null)} onSave={doc=>{setData(d=>({...d,receivables:[{id:uid(),...doc},...d.receivables]}));setModal(null);}}/>}
+    {modal?.type==="cxp"&&<DocModal kind="pagar" categories={categories} onClose={()=>setModal(null)} onSave={doc=>{setData(d=>({...d,payables:[{id:uid(),...doc},...d.payables]}));setModal(null);}}/>}
+    {modal?.type==="pago"&&<PagoModal {...{accounts,doc:modal.doc,kind:modal.kind,transactions,currentUser,onClose:()=>setModal(null),onSave:tx=>{addTx(tx);setModal(null);}}}/>}
+    {modal?.type==="ajustes"&&<AjustesModal {...{data,setData,onClose:()=>setModal(null)}}/>}
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
